@@ -15,6 +15,39 @@ library(flexdashboard)
 
 ```
 
+Search
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### stat_density Example
+
+```{r}
+
+```
+
+### Add Conditional Density Curves to Plot
+
+```{r}
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### geom_density and facet_wrap Together
+
+```{r}
+
+```
+
+### Density and Scatterplot Overlay Using geom_density
+
+```{r}
+
+```
+
 Patents
 =======================================================================
 
@@ -74,8 +107,8 @@ library(knitr)
 
 Dtisi <- readFiles("~/MEGA/IMTOOL2/IMtool2/data/savedrecs.bib")
 database <- convert2df(Dtisi, dbsource = "isi", format = "bibtex")
-df <- biblioAnalysis(database, sep = ";")
-df.summary <- summary(object = df, k = 10, pause = FALSE)
+dfbiblio <- biblioAnalysis(database, sep = ";")
+df.summary <- summary(object = dfbiblio, k = 10, pause = FALSE)
 ```
 
 
@@ -249,19 +282,65 @@ Row
 EUROSTAT
 =======================================================================
 
+```{r include=FALSE}
+library(eurostat)
+library(rvest)
+# Check Id
+id <- search_eurostat("Passenger cars, by alternative motor energy and by power of vehicles",type = "dataset")$code[1]
+
+# Download Dataset
+dat <-get_eurostat(id, time_format = "num", type = "label")
+dat <- data.frame(dat)
+
+
+# Subset by type of energy
+elec <- subset(dat, prod_nrg == "Electrical Energy", select = c(geo, time, values))
+gas <- subset(dat, prod_nrg == "Natural Gas", select = c(geo, time, values))
+lpg <- subset(dat, prod_nrg == "LPG", select = c(geo, time, values))
+other <- subset(dat, prod_nrg == "Other products", select = c(geo, time, values))
+total <- subset(dat, prod_nrg == "Total", select = c(geo, time, values)) 
+      
+# Total analysis
+el.date <- aggregate(values ~ time, elec, sum)
+gas.date <- aggregate(values ~ time, gas, sum)
+lpg.date <- aggregate(values ~ time, lpg, sum)
+other.date <- aggregate(values ~ time, other, sum)
+total.date <- aggregate(values ~ time, total, sum)
+```
+
+
 Row
 -----------------------------------------------------------------------
 
-### stat_density Example
+### Sector Investment
 
 ```{r}
+# Plot by Sector/Years
+p <- plot(el.date, type='o', 
+          col="red", 
+          ylab="Amount of Eur(millions)", 
+          xlab="Years",
+          ylim = c(0, 10000))
 
+points(values ~ time, data=gas.date, type='b', col="green")
+points(values ~ time, data=lpg.date, type='l',lty=2, col="blue")
+points(values ~ time, data=other.date, type='l', col="orange")
+title(main="Investiment in Automotive Sector in UE", col.main="black", font.main=4)
+legend("topleft", 
+       c("Electric", "Gas", "Lpg", "Other"), 
+       lty = c(1,1,1,1), 
+       col = c("red", "green", "blue", "orange"))
 ```
 
-### Add Conditional Density Curves to Plot
+### Countries Analisys
 
 ```{r}
-
+# Dendogram
+total.geo <- aggregate(values ~ geo, total, sum)
+dd <- dist(scale(total.geo$values), method = "euclidean")
+name <- as.factor(total.geo$geo)
+hc <- hclust(dd, method = "ward.D2")
+plot(hc)
 ```
 
 Row
@@ -344,3 +423,57 @@ Row
 ```{r}
 
 ```
+
+Survey
+=======================================================================
+
+```{r}
+### General Analysis for UE28
+library(dplyr)
+cat = c('un', 'fa', 'co')
+ue28tr = c(16840, 3814, 5893)
+ue28go = c(14568, 4515, 7236)
+m_tr = ue28tr / sum(ue28tr)
+m_go = ue28go / sum(ue28go)
+
+### Analysis include all 28 Countries
+dfsurvey <- read.csv("~/MEGA/IMTOOL2/IMtool2/data/travel.csv")
+
+### Create means by 3 variables by row
+dfsurvey$total <- apply(dfsurvey[ , 2:4], 1, sum)
+dfsurvey$un_mean <- dfsurvey$uncomfortable / dfsurvey$total
+dfsurvey$fa_mean <- dfsurvey$fairly / dfsurvey$total
+dfsurvey$co_mean <- dfsurvey$comfortable / dfsurvey$total
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### Sector Investment
+
+```{r}
+
+```
+
+### Countries analysis 
+
+```{r}
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### geom_density and facet_wrap Together
+
+```{r}
+
+```
+
+### Density and Scatterplot Overlay Using geom_density
+
+```{r}
+
+```
+
