@@ -12,7 +12,6 @@ library(ggplot2)
 library(plotly)
 library(plyr)
 library(flexdashboard)
-
 ```
 
 Search
@@ -51,17 +50,13 @@ Row
 Patents
 =======================================================================
 
-```{r include=FALSE}
+```{r}
 library(patentsview)
 library(dplyr)
 library(highcharter)
 library(DT)
 library(knitr)
-library(visNetwork)
-library(magrittr)
-library(stringr)
 
-### Query Function
 query <- with_qfuns(
       or(
             text_phrase(patent_abstract = "autonomous vehicles"),
@@ -69,23 +64,56 @@ query <- with_qfuns(
       )
 )
 
-# Create a list of the fields we'll need for the analysis:
 fields <- c("patent_number", "assignee_organization",
             "patent_num_cited_by_us_patents", "app_date", "patent_date",
             "assignee_total_num_patents")
 
 # Send an HTTP request to the PatentsView API to get data:
 pv_out <- search_pv(query = query, fields = fields, all_pages = TRUE)
+
+dl <- unnest_pv_data(data = pv_out$data, pk = "patent_number")
+
 ```
 
+```{r echo=FALSE}
+top_asgns <- dl$assignees %>%
+      filter(!is.na(assignee_organization)) 
+top_asgns <- mutate(top_asgns, ttl_pats = as.numeric(assignee_total_num_patents))
+
+top_asgns <- group_by(top_asgns, assignee_organization, ttl_pats) 
+top_asgns <- summarise(top_asgns, db_pats = n()) 
+top_asgns <- mutate(top_asgns, frac_db_pats = round(db_pats / ttl_pats, 3))
+top_asgns <- ungroup(top_asgns)
+top_asgns <- select(top_asgns,c(1, 3, 2, 4))
+top_asgns <- arrange(top_asgns,desc(db_pats))
+top_asgns <- slice(top_asgns, c(1:75))
+
+```
 
 Row
 -----------------------------------------------------------------------
 
 ### Top Assignes
 
+```{r}
+# Create datatable:
+datatable(
+      data = top_asgns,
+      rownames = FALSE,
+      colnames = c("Assignee", "AV patents","Total patents", 
+                   "AV patents / total patents"),
+      caption = htmltools::tags$caption(
+            style = 'caption-side: top; text-align: left; font-style: italic;',
+            "Table 1: Top assignees in 'Autonomous Vehicles'"
+      ),
+      options = list(pageLength = 10)
+)
+```
 
-### Citation rate
+
+### Hchart
+
+![caption](/home/fabio/MEGA/IMTOOL2/IMtool2/images/chart.png)
 
 
 Row
@@ -93,7 +121,36 @@ Row
 
 ### Citation Network
 
+```{r}
+percent_rank2 <- function(x)
+      (rank(x, ties.method = "average", na.last = "keep") - 1) / (sum(!is.na(x)) - 1)
+
+# Create a data frame with normalized citation rates and stats from Step 2: 
+asng_p_dat <-
+      dl$patents %>%
+      mutate(patent_yr = substr(patent_date, 1, 4)) %>%
+      group_by(patent_yr) %>%
+      mutate(perc_cite = percent_rank2(patent_num_cited_by_us_patents)) %>%
+      inner_join(dl$assignees) %>%
+      group_by(assignee_organization) %>%
+      summarise(mean_perc = mean(perc_cite)) %>%
+      inner_join(top_asgns) %>%
+      arrange(desc(ttl_pats)) %>%
+      filter(!is.na(assignee_organization)) %>%
+      slice(1:20) %>%
+      mutate(color = "#f1c40f") %>%
+      as.data.frame()
+
+kable(head(asng_p_dat), row.names = FALSE)
+```
+
+
 ### Citation Network 2
+
+```{r}
+
+```
+
 
 Scientometric
 =======================================================================
@@ -210,25 +267,32 @@ News
 =======================================================================
 
 ```{r}
+library(tm)
 library(tm.plugin.webmining)
+library(wordcloud)
+
 yahoonews <- WebCorpus(YahooNewsSource("Autonomous vehicles"))
 googlenews <- WebCorpus(GoogleNewsSource("Autonomous vehicles"))
 ```
 
-
 Row
 -----------------------------------------------------------------------
 
-### News Trends
+### Google News
 
 ```{r}
-
+library(tm)
+library(tm.plugin.webmining)
+library(wordcloud)
+wordcloud(googlenews, scale = c(5,0.5), max.words = 100, random.order = FALSE, rot.per = 0.35,
+          use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
-### Add Conditional Density Curves to Plot
+### Yahoo News
 
 ```{r}
-
+wordcloud(yahoonews, scale = c(5,0.5), max.words = 100, random.order = FALSE, rot.per = 0.35,
+          use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 Row
@@ -391,22 +455,71 @@ Row
 
 ```
 
-Twitter
+Social Media
 =======================================================================
+
+```{r include=FALSE}
+consumer_key <- 'YetGrrFzoeN0UUQfCZoQERsYg'
+consumer_secret <- 'xb2sXMwcLOP5HNERJBgPw2gCHUPjSSFy0VLhRScgJjfkCaP79K'
+access_token <- '293631173-p2Kv4K7BW41D0vNXc5OQgdBR5nCwR4D7pmiiTgyh'
+access_secret <- 'JpO4Wik99qyREddOfi0zdnxhsUdhhv1PhjbL52i4gqoHv'
+library(httr)
+library(devtools)
+library(twitteR)
+library(base64enc)
+setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
+
+tweets <- searchTwitter("autonomous vehicles",n=300,lang="en")
+tweets_df = twListToDF(tweets)
+
+library(tm)
+
+mycorpus = Corpus(VectorSource(tweets_df$text))
+removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
+mycorpus <- tm_map(mycorpus, content_transformer(removeURL))
+mycorpus = tm_map(mycorpus, stripWhitespace)
+mycorpus = tm_map(mycorpus, tolower)
+mycorpus = tm_map(mycorpus, removePunctuation)
+mycorpus = tm_map(mycorpus, removeWords, stopwords(kind = "english"))
+
+# keep a copy for stem completion later
+myCorpusCopy <- mycorpus
+
+dtm <- DocumentTermMatrix(mycorpus)
+
+freq <- colSums(as.matrix(dtm))
+
+ord <- order(freq,decreasing=TRUE)
+
+freq[head(ord)]
+
+tdm <- TermDocumentMatrix(mycorpus,
+                          control = list(wordLengths = c(1, Inf)))
+
+term.freq <- rowSums(as.matrix(tdm))
+term.freq <- subset(term.freq, term.freq >= 20)
+df <- data.frame(term = names(term.freq), freq = term.freq)
+```
+
 
 Row
 -----------------------------------------------------------------------
 
-### stat_density Example
+### Common words
 
-```{r}
-
+```{r echo=FALSE}
+library(ggplot2)
+ggplot(df, aes(x=term, y=freq)) + geom_bar(stat="identity") +
+  xlab("Terms") + ylab("Count") + coord_flip() +
+  theme(axis.text=element_text(size=7))
 ```
 
-### Add Conditional Density Curves to Plot
+### Wordcloud
 
-```{r}
-
+```{r echo=FALSE}
+wordcloud(words = df$term, freq = df$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.30, 
+          colors=brewer.pal(8, "Dark2"))
 ```
 
 Row
@@ -428,22 +541,7 @@ Survey
 =======================================================================
 
 ```{r}
-### General Analysis for UE28
-library(dplyr)
-cat = c('un', 'fa', 'co')
-ue28tr = c(16840, 3814, 5893)
-ue28go = c(14568, 4515, 7236)
-m_tr = ue28tr / sum(ue28tr)
-m_go = ue28go / sum(ue28go)
 
-### Analysis include all 28 Countries
-dfsurvey <- read.csv("~/MEGA/IMTOOL2/IMtool2/data/travel.csv")
-
-### Create means by 3 variables by row
-dfsurvey$total <- apply(dfsurvey[ , 2:4], 1, sum)
-dfsurvey$un_mean <- dfsurvey$uncomfortable / dfsurvey$total
-dfsurvey$fa_mean <- dfsurvey$fairly / dfsurvey$total
-dfsurvey$co_mean <- dfsurvey$comfortable / dfsurvey$total
 ```
 
 
@@ -472,6 +570,24 @@ Row
 ```
 
 ### Density and Scatterplot Overlay Using geom_density
+
+```{r}
+
+```
+
+Start-up monitoring
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### stat_density Example
+
+```{r}
+
+```
+
+### Add Conditional Density Curves to Plot
 
 ```{r}
 
