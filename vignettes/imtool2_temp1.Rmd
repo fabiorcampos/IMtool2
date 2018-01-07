@@ -59,8 +59,8 @@ library(knitr)
 
 query <- with_qfuns(
       or(
-            text_phrase(patent_abstract = "autonomous vehicles"),
-            text_phrase(patent_title = "autonomous vehicles")
+            text_phrase(patent_abstract = "Healthcare"),
+            text_phrase(patent_title = "Healthcare")
       )
 )
 
@@ -207,25 +207,19 @@ library(gtrendsR)
 library(forecast)
 library(tseries)
 
-keyword = c("autonomous vehicles", "self driving cars")
+keyword = c("Healthcare innovation", "Healthcare Technologies")
 
-res = gtrends(keyword, geo = "", time = "all", gprop = "web", category = 0, hl = "en-US")
+res = gtrends(keyword)
 
-keyword_pt = "carro autonomo"
+keyword_pt = "Inovações em Saúde"
 
-res_pt = gtrends(keyword_pt, geo = "BR", time = "all", gprop = "web", category = 0)
+res_pt = gtrends(keyword_pt)
 
 gt.fc.en <- res$interest_over_time
 fc.en <- forecast(res$hits)
 
 xt_en <- window(gt.fc.en[,2],end=218)
 xf_en <- window(gt.fc.en[,2],start=219)
-
-gt.fc.br <- res_pt$interest_over_time
-fc.br <- forecast(res_pt$hits)
-
-xt_pt <- window(gt.fc.br[,2],end=100)
-xt_pt <- window(gt.fc.br[,2],start = 101)
 ```
 
 
@@ -251,49 +245,22 @@ Row
 
 ### Google Trends - Brasil
 
-```{r}
-plot(res_pt)
-```
 
 ### Forecast Analysis - Brazil
-
-```{r}
-rwd_br <- rwf(xt_pt,drift=T,h=66)
-plot(rwd_br,main="Random Walk with Drift Method",ylab="Level",xlab="Months")
-lines(gt.fc.br[,2])
-```
 
 News
 =======================================================================
 
-```{r}
-library(tm)
-library(tm.plugin.webmining)
-library(wordcloud)
-
-yahoonews <- WebCorpus(YahooNewsSource("Autonomous vehicles"))
-googlenews <- WebCorpus(GoogleNewsSource("Autonomous vehicles"))
-```
 
 Row
 -----------------------------------------------------------------------
 
 ### Google News
 
-```{r}
-library(tm)
-library(tm.plugin.webmining)
-library(wordcloud)
-wordcloud(googlenews, scale = c(5,0.5), max.words = 100, random.order = FALSE, rot.per = 0.35,
-          use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
-```
+
 
 ### Yahoo News
 
-```{r}
-wordcloud(yahoonews, scale = c(5,0.5), max.words = 100, random.order = FALSE, rot.per = 0.35,
-          use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
-```
 
 Row
 -----------------------------------------------------------------------
@@ -475,12 +442,9 @@ tweets_df = twListToDF(tweets)
 library(tm)
 
 mycorpus = Corpus(VectorSource(tweets_df$text))
-removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
-mycorpus <- tm_map(mycorpus, content_transformer(removeURL))
 mycorpus = tm_map(mycorpus, stripWhitespace)
 mycorpus = tm_map(mycorpus, tolower)
 mycorpus = tm_map(mycorpus, removePunctuation)
-mycorpus = tm_map(mycorpus, removeWords, stopwords(kind = "english"))
 
 # keep a copy for stem completion later
 myCorpusCopy <- mycorpus
@@ -515,12 +479,6 @@ ggplot(df, aes(x=term, y=freq)) + geom_bar(stat="identity") +
 ```
 
 ### Wordcloud
-
-```{r echo=FALSE}
-wordcloud(words = df$term, freq = df$freq, min.freq = 1,
-          max.words=200, random.order=FALSE, rot.per=0.30, 
-          colors=brewer.pal(8, "Dark2"))
-```
 
 Row
 -----------------------------------------------------------------------

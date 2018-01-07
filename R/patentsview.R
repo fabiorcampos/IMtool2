@@ -11,8 +11,7 @@ library(knitr)
 # research that has been done in patent document retrieval.
 query <- with_qfuns(
       or(
-            text_phrase(patent_abstract = "autonomous vehicles"),
-            text_phrase(patent_title = "autonomous vehicles")
+            text_phrase(patent_abstract = "Augmented Reality")
       )
 )
 
