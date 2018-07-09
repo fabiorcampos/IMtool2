@@ -8,13 +8,13 @@ library(twitteR)
 library(base64enc)
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
-tweets <- searchTwitter("autonomous vehicles",n=300,lang="en")
+tweets <- searchTwitter("Neymar",n=300,lang="en")
 tweets_df = twListToDF(tweets)
 
 library(tm)
 
 mycorpus = Corpus(VectorSource(tweets_df$text))
-removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
+removeURL <- function(x) gsub("http[^[:space:]]*", " ", x)
 mycorpus <- tm_map(mycorpus, content_transformer(removeURL))
 mycorpus = tm_map(mycorpus, stripWhitespace)
 mycorpus = tm_map(mycorpus, tolower)
